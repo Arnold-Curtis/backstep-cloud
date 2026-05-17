@@ -1,0 +1,51 @@
+[package]
+name = "backstep-cloud"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+# gRPC server
+tonic = { version = "0.12", features = ["transport", "tls"] }
+prost = "0.13"
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# Database
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono", "migrate"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+# Object storage (S3-compatible → R2)
+aws-sdk-s3 = "1"
+aws-config = "1"
+aws-credential-types = "1"
+
+# Auth
+sha2 = "0.10"
+hex = "0.4"
+rand = "0.8"
+
+# Config
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+dotenvy = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter", "json"] }
+tracing-appender = "0.2"
+
+# Error handling
+thiserror = "2"
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+# Integration testing with a real PostgreSQL
+sqlx = { version = "0.8", features = ["runtime-tokio", "tls-rustls", "postgres", "uuid", "chrono"] }
+tower = "0.5"

@@ -1,0 +1,218 @@
+// Backstep Zero-Knowledge Sync Protocol v1
+//
+// Defines the gRPC contract between the local backstep-engine client
+// and the cloud sync server. The server is fully blind (zero-knowledge):
+// all payloads are opaque encrypted bytes. The server sees only
+// device_id, lamport_clock, and metadata strings for indexing.
+//
+// Owner: Sprint Phase 9 — Sync Worker
+// Status: Active
+
+syntax = "proto3";
+
+package backstep.sync.v1;
+
+// ── Enums ──────────────────────────────────────────────────
+
+// Type of entity being synced.
+enum EntityType {
+  ENTITY_TYPE_UNSPECIFIED = 0;
+  ENTITY_TYPE_VERSION = 1;
+  ENTITY_TYPE_CHUNK = 2;
+  ENTITY_TYPE_TOMBSTONE = 3;
+}
+
+// CRDT operation type.
+enum SyncOperation {
+  SYNC_OPERATION_UNSPECIFIED = 0;
+  SYNC_OPERATION_CREATE = 1;
+  SYNC_OPERATION_DELETE = 2;
+}
+
+// ── Core Messages ──────────────────────────────────────────
+
+// Pushed when a new encrypted pack file is sealed locally.
+// Client-streaming: first message carries metadata, subsequent
+// messages carry chunk_data.
+message PackPushRequest {
+  // Stable device identifier (from device_info table).
+  string device_id = 1;
+
+  // Local Lamport clock at time of this push.
+  uint64 lamport_clock = 2;
+
+  // Pack file identifier (auto-increment id from packs table).
+  uint64 pack_id = 3;
+
+  // File name on disk (e.g., "pack_00000001.pack").
+  string file_name = 4;
+
+  // Total chunks in this pack.
+  uint32 chunk_count = 5;
+
+  // Total byte size of the pack file.
+  uint64 total_bytes = 6;
+
+  // Streaming chunk data (empty on first/metadata message).
+  bytes chunk_data = 7;
+}
+
+message PackPushResponse {
+  // Pack ID confirmed by the server.
+  uint64 pack_id = 1;
+
+  // Server-assigned Lamport clock for this operation.
+  uint64 server_clock = 2;
+
+  // Human-readable status.
+  string status = 3;
+}
+
+// Pushed for each new version, chunk, or tombstone CRDT operation.
+// The encrypted_metadata field carries JSON-serialized CRDT metadata
+// encrypted with the device's sync key — fully opaque to server.
+message MetadataPushRequest {
+  // Stable device identifier.
+  string device_id = 1;
+
+  // Local Lamport clock at time of this push.
+  uint64 lamport_clock = 2;
+
+  // The type of entity being synced.
+  EntityType entity_type = 3;
+
+  // The operation type (create or delete).
+  SyncOperation operation = 4;
+
+  // Database entity ID (version_id, or tombstone_id).
+  uint64 entity_id = 5;
+
+  // For chunks: the low 64 bits of the chunk hash.
+  // For other entities: 0.
+  uint64 entity_sub_id = 6;
+
+  // ISO 8601 timestamp of the local operation.
+  string timestamp = 7;
+
+  // Opaque encrypted metadata payload (JSON → encrypt → bytes).
+  bytes encrypted_metadata = 8;
+}
+
+message MetadataPushResponse {
+  // Number of operations accepted in this batch.
+  uint32 accepted_count = 1;
+
+  // Server Lamport clock after applying operations.
+  uint64 server_clock = 2;
+
+  // Human-readable status.
+  string status = 3;
+}
+
+// Request to pull a specific encrypted pack file from the server.
+message PackPullRequest {
+  string device_id = 1;
+
+  // The pack ID requested.
+  uint64 pack_id = 2;
+}
+
+// Server-streaming response: first message is metadata,
+// subsequent messages carry chunk_data.
+message PackPullResponse {
+  uint64 pack_id = 1;
+
+  // Total byte size of the pack.
+  uint64 total_bytes = 2;
+
+  // Streaming chunk data (empty on metadata message).
+  bytes chunk_data = 3;
+}
+
+// Request to pull remote CRDT operations since a given Lamport clock.
+message MetadataPullRequest {
+  string device_id = 1;
+
+  // Fetch all remote operations with clock > since_clock.
+  uint64 since_clock = 2;
+
+  // Maximum number of operations to return (pagination).
+  uint32 max_operations = 3;
+}
+
+// A single remote CRDT operation returned by the server.
+message RemoteOperation {
+  // The device that originated this operation.
+  string origin_device_id = 1;
+
+  // Lamport clock assigned by the server.
+  uint64 server_clock = 2;
+
+  EntityType entity_type = 3;
+  SyncOperation operation = 4;
+  uint64 entity_id = 5;
+  uint64 entity_sub_id = 6;
+  string timestamp = 7;
+
+  // Opaque encrypted metadata.
+  bytes encrypted_metadata = 8;
+}
+
+message MetadataPullResponse {
+  // List of remote metadata operations.
+  repeated RemoteOperation operations = 1;
+
+  // Highest server clock in this batch.
+  uint64 server_clock = 2;
+
+  // Whether more operations remain (for pagination).
+  bool has_more = 3;
+}
+
+// ── Health / Handshake ─────────────────────────────────────
+
+// Initial connection handshake for device authentication
+// and clock synchronization.
+message SyncHandshakeRequest {
+  // Stable device identifier.
+  string device_id = 1;
+
+  // Current local Lamport clock.
+  uint64 local_clock = 2;
+
+  // Engine version for protocol compatibility negotiation.
+  string engine_version = 3;
+}
+
+message SyncHandshakeResponse {
+  // Server's current Lamport clock.
+  uint64 server_clock = 1;
+
+  // Whether the server accepts this device.
+  bool accepted = 2;
+
+  // Server version string.
+  string server_version = 3;
+
+  // Human-readable message (for logging/diagnostics).
+  string message = 4;
+}
+
+// ── Service Definition ─────────────────────────────────────
+
+service SyncService {
+  // Bidirectional handshake on connect.
+  rpc Handshake(SyncHandshakeRequest) returns (SyncHandshakeResponse);
+
+  // Push an encrypted pack file (client-streaming).
+  rpc PushPack(stream PackPushRequest) returns (PackPushResponse);
+
+  // Push CRDT metadata operations (unary — batch at the application layer).
+  rpc PushMetadata(MetadataPushRequest) returns (MetadataPushResponse);
+
+  // Pull a missing encrypted pack file (server-streaming).
+  rpc PullPack(PackPullRequest) returns (stream PackPullResponse);
+
+  // Pull remote CRDT metadata operations (unary with pagination).
+  rpc PullMetadata(MetadataPullRequest) returns (MetadataPullResponse);
+}

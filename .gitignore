@@ -1,0 +1,27 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Environment files — contains secrets (DATABASE_URL, R2 keys)
+.env
+.env.local
+.env.*.local
+
+# Tonic / Prost — generated protobuf code lives in /target/
+# (compiled at build time via build.rs)
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+*.log
+core
