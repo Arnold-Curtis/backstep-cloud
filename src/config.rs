@@ -15,6 +15,10 @@ pub struct ServerConfig {
     pub tls_cert_path: Option<String>,
     pub tls_key_path: Option<String>,
     pub log_level: String,
+
+    /// Port for the Prometheus /metrics HTTP endpoint.
+    /// Default: 9090.
+    pub metrics_port: u16,
 }
 
 impl ServerConfig {
@@ -33,6 +37,7 @@ impl ServerConfig {
             tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
             tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
             log_level: env_or("LOG_LEVEL", "info"),
+            metrics_port: env_or("METRICS_PORT", "9090").parse().unwrap_or(9090),
         })
     }
 

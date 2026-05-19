@@ -16,7 +16,7 @@ pub async fn handle(
         .await
         .map_err(Status::from)?;
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     let mut stream = request.into_inner();
     let mut buffer = Vec::new();

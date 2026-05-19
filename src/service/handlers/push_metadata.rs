@@ -16,7 +16,7 @@ pub async fn handle(
 
     let req = request.into_inner();
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     let entity_type = EntityType::try_from(req.entity_type)
         .map_err(|_| Status::invalid_argument("invalid entity_type"))?;

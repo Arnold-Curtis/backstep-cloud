@@ -16,7 +16,7 @@ pub async fn handle(
 
     let req = request.into_inner();
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     validation::validate_device_id(&req.device_id).map_err(Status::from)?;
     validation::validate_since_clock(req.since_clock).map_err(Status::from)?;

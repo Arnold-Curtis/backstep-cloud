@@ -2,6 +2,7 @@ use backstep_cloud::{
     auth::RateLimiter,
     config::ServerConfig,
     db::pool,
+    metrics,
     service::{AppState, SyncServiceImpl},
     storage,
     CloudError,
@@ -65,6 +66,8 @@ async fn main() -> Result<(), CloudError> {
         .set_serving("backstep.sync.v1.SyncService")
         .await;
     tracing::info!("health check endpoint registered: grpc.health.v1.Health/Check");
+
+    let _metrics_handle = metrics::start_metrics_server(config.metrics_port);
 
     let max_message_bytes = config.max_pack_bytes as usize;
 
