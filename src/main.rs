@@ -10,7 +10,7 @@ use backstep_cloud::{
 use std::time::Duration;
 use tonic::transport::server::ServerTlsConfig;
 use tonic::transport::{Identity, Server};
-use tonic_health::server::HealthReporter;
+use tonic_health::ServingStatus;
 
 /// Waits for SIGINT, then returns so the server can drain in-flight RPCs.
 async fn shutdown_signal() {
@@ -61,7 +61,7 @@ async fn main() -> Result<(), CloudError> {
 
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
     health_reporter
-        .set_serving("backstep.sync.v1.SyncService")
+        .set_service_status("backstep.sync.v1.SyncService", ServingStatus::Serving)
         .await;
     tracing::info!("health check endpoint registered: grpc.health.v1.Health/Check");
 

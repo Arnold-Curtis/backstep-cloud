@@ -2,6 +2,7 @@ use governor::{
     clock::DefaultClock, state::keyed::HashMapStateStore, Quota, RateLimiter as GovLimiter,
 };
 use std::num::NonZeroU32;
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Per-account time-window rate limiter using the GCRA algorithm.
@@ -11,7 +12,7 @@ use uuid::Uuid;
 /// until capacity is available.
 #[derive(Clone)]
 pub struct RateLimiter {
-    inner: GovLimiter<Uuid, HashMapStateStore<Uuid>, DefaultClock>,
+    inner: Arc<GovLimiter<Uuid, HashMapStateStore<Uuid>, DefaultClock>>,
 }
 
 impl RateLimiter {
@@ -22,7 +23,7 @@ impl RateLimiter {
             NonZeroU32::new(max_per_second).expect("max_per_second must be non-zero"),
         );
         Self {
-            inner: GovLimiter::hashmap(quota),
+            inner: Arc::new(GovLimiter::hashmap(quota)),
         }
     }
 
