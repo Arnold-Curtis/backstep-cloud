@@ -14,7 +14,8 @@ use crate::storage;
 pub async fn handle(
     request: Request<PackPullRequest>,
     state: &AppState,
-) -> Result<Response<Pin<Box<dyn Stream<Item = Result<PackPullResponse, Status>> + Send>>>, Status> {
+) -> Result<Response<Pin<Box<dyn Stream<Item = Result<PackPullResponse, Status>> + Send>>>, Status>
+{
     let ctx = authenticate(request.metadata(), &state.pool)
         .await
         .map_err(Status::from)?;

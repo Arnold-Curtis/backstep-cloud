@@ -16,7 +16,10 @@ pub struct RequestContext {
 /// Validate the Bearer token from gRPC metadata and return RequestContext.
 /// Called at the start of every gRPC handler.
 /// Returns CloudError::Auth if the token is missing, invalid, or revoked.
-pub async fn authenticate(metadata: &MetadataMap, pool: &PgPool) -> Result<RequestContext, CloudError> {
+pub async fn authenticate(
+    metadata: &MetadataMap,
+    pool: &PgPool,
+) -> Result<RequestContext, CloudError> {
     let token = metadata
         .get("authorization")
         .and_then(|v| v.to_str().ok())

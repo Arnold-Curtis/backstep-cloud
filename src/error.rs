@@ -38,12 +38,8 @@ impl From<CloudError> for tonic::Status {
             CloudError::Config(_) | CloudError::Internal(_) => {
                 tonic::Status::internal(err.to_string())
             }
-            CloudError::Database(e) => {
-                tonic::Status::internal(format!("database error: {}", e))
-            }
-            CloudError::Storage(msg) => {
-                tonic::Status::internal(format!("storage error: {}", msg))
-            }
+            CloudError::Database(e) => tonic::Status::internal(format!("database error: {}", e)),
+            CloudError::Storage(msg) => tonic::Status::internal(format!("storage error: {}", msg)),
             CloudError::Grpc(status) => (**status).clone(),
         }
     }

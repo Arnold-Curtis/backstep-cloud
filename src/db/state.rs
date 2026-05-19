@@ -5,12 +5,11 @@ use crate::CloudError;
 
 /// Returns the current Lamport clock for an account without locking.
 pub async fn get_clock(pool: &PgPool, account_id: Uuid) -> Result<i64, CloudError> {
-    let result: Option<(i64,)> = sqlx::query_as(
-        "SELECT lamport_clock FROM account_state WHERE account_id = $1",
-    )
-    .bind(account_id)
-    .fetch_optional(pool)
-    .await?;
+    let result: Option<(i64,)> =
+        sqlx::query_as("SELECT lamport_clock FROM account_state WHERE account_id = $1")
+            .bind(account_id)
+            .fetch_optional(pool)
+            .await?;
 
     Ok(result.map(|r| r.0).unwrap_or(0))
 }
@@ -24,12 +23,11 @@ pub async fn increment_clock(
     client_clock: i64,
 ) -> Result<i64, CloudError> {
     // Lock the row to serialize per-account clock updates.
-    let current: Option<(i64,)> = sqlx::query_as(
-        "SELECT lamport_clock FROM account_state WHERE account_id = $1 FOR UPDATE",
-    )
-    .bind(account_id)
-    .fetch_optional(&mut **tx)
-    .await?;
+    let current: Option<(i64,)> =
+        sqlx::query_as("SELECT lamport_clock FROM account_state WHERE account_id = $1 FOR UPDATE")
+            .bind(account_id)
+            .fetch_optional(&mut **tx)
+            .await?;
 
     let current_clock = current.map(|r| r.0).unwrap_or(0);
 

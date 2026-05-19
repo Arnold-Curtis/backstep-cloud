@@ -32,7 +32,9 @@ impl ServerConfig {
             r2_access_key_id: env_required("R2_ACCESS_KEY_ID")?,
             r2_secret_access_key: env_required("R2_SECRET_ACCESS_KEY")?,
             r2_region: env_or("R2_REGION", "auto"),
-            max_pack_bytes: env_or("MAX_PACK_BYTES", "8388608").parse().unwrap_or(8_388_608),
+            max_pack_bytes: env_or("MAX_PACK_BYTES", "8388608")
+                .parse()
+                .unwrap_or(8_388_608),
             max_pull_operations: env_or("MAX_PULL_OPERATIONS", "100").parse().unwrap_or(100),
             tls_cert_path: std::env::var("TLS_CERT_PATH").ok(),
             tls_key_path: std::env::var("TLS_KEY_PATH").ok(),
@@ -42,7 +44,9 @@ impl ServerConfig {
     }
 
     pub fn validate(&self) -> Result<(), crate::CloudError> {
-        if cfg!(not(debug_assertions)) && (self.tls_cert_path.is_none() || self.tls_key_path.is_none()) {
+        if cfg!(not(debug_assertions))
+            && (self.tls_cert_path.is_none() || self.tls_key_path.is_none())
+        {
             return Err(crate::CloudError::Config(
                 "TLS_CERT_PATH and TLS_KEY_PATH required for production".into(),
             ));

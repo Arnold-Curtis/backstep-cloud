@@ -1,7 +1,5 @@
 use governor::{
-    clock::DefaultClock,
-    state::keyed::HashMapStateStore,
-    Quota, RateLimiter as GovLimiter,
+    clock::DefaultClock, state::keyed::HashMapStateStore, Quota, RateLimiter as GovLimiter,
 };
 use std::num::NonZeroU32;
 use uuid::Uuid;

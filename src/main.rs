@@ -4,8 +4,7 @@ use backstep_cloud::{
     db::pool,
     metrics,
     service::{AppState, SyncServiceImpl},
-    storage,
-    CloudError,
+    storage, CloudError,
 };
 
 use std::time::Duration;
@@ -28,8 +27,7 @@ async fn main() -> Result<(), CloudError> {
     tracing_subscriber::fmt()
         .json()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "info".into()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
 
@@ -76,9 +74,8 @@ async fn main() -> Result<(), CloudError> {
             let cert_pem = std::fs::read_to_string(cert_path).map_err(|e| {
                 CloudError::Config(format!("failed to read TLS certificate: {}", e))
             })?;
-            let key_pem = std::fs::read_to_string(key_path).map_err(|e| {
-                CloudError::Config(format!("failed to read TLS key: {}", e))
-            })?;
+            let key_pem = std::fs::read_to_string(key_path)
+                .map_err(|e| CloudError::Config(format!("failed to read TLS key: {}", e)))?;
             let identity = Identity::from_pem(cert_pem, key_pem);
             let tls = ServerTlsConfig::new().identity(identity);
 
@@ -95,7 +92,11 @@ async fn main() -> Result<(), CloudError> {
         }
     };
 
-    let transport_label = if tls_config.is_some() { "TLS" } else { "plaintext" };
+    let transport_label = if tls_config.is_some() {
+        "TLS"
+    } else {
+        "plaintext"
+    };
     tracing::info!(
         addr = %config.listen_addr,
         max_message_bytes,

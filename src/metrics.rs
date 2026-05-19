@@ -21,13 +21,9 @@ pub fn start_metrics_server(port: u16) -> JoinHandle<()> {
         .build()
         .expect("failed to build Prometheus exporter");
 
-    metrics::set_global_recorder(recorder)
-        .expect("global metrics recorder already set");
+    metrics::set_global_recorder(recorder).expect("global metrics recorder already set");
 
-    tracing::info!(
-        port,
-        "Prometheus metrics endpoint listening on /metrics"
-    );
+    tracing::info!(port, "Prometheus metrics endpoint listening on /metrics");
 
     tokio::spawn(async move {
         if let Err(e) = exporter.await {

@@ -1,7 +1,10 @@
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 
-pub async fn init_pool(database_url: &str, max_connections: u32) -> Result<PgPool, crate::CloudError> {
+pub async fn init_pool(
+    database_url: &str,
+    max_connections: u32,
+) -> Result<PgPool, crate::CloudError> {
     let pool = PgPoolOptions::new()
         .max_connections(max_connections)
         .connect(database_url)

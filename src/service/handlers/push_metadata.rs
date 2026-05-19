@@ -39,11 +39,14 @@ pub async fn handle(
     };
 
     // Atomic clock increment + event insert in one transaction.
-    let mut tx = state.pool.begin().await.map_err(|e| Status::internal(e.to_string()))?;
-    let new_clock =
-        state::increment_clock(&mut tx, ctx.account_id, req.lamport_clock as i64)
-            .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+    let mut tx = state
+        .pool
+        .begin()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?;
+    let new_clock = state::increment_clock(&mut tx, ctx.account_id, req.lamport_clock as i64)
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     let mut record_with_clock = record;
     record_with_clock.server_clock = new_clock;
@@ -51,7 +54,9 @@ pub async fn handle(
     events::insert_event(&mut *tx, ctx.account_id, &record_with_clock)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
-    tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+    tx.commit()
+        .await
+        .map_err(|e| Status::internal(e.to_string()))?;
 
     logging::audit_mutation(
         ctx.account_id,
