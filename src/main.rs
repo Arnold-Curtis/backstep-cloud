@@ -10,6 +10,7 @@ use backstep_cloud::{
 use std::time::Duration;
 use tonic::transport::server::ServerTlsConfig;
 use tonic::transport::{Identity, Server};
+use tonic_health::server::HealthReporter;
 
 /// Waits for SIGINT, then returns so the server can drain in-flight RPCs.
 async fn shutdown_signal() {
@@ -59,6 +60,12 @@ async fn main() -> Result<(), CloudError> {
 
     let svc = SyncServiceImpl::new(state);
 
+    let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+    health_reporter
+        .set_serving("backstep.sync.v1.SyncService")
+        .await;
+    tracing::info!("health check endpoint registered: grpc.health.v1.Health/Check");
+
     let max_message_bytes = config.max_pack_bytes as usize;
 
     let tls_config = match (&config.tls_cert_path, &config.tls_key_path) {
@@ -107,6 +114,7 @@ async fn main() -> Result<(), CloudError> {
         .map_err(|e| CloudError::Internal(format!("bind failed: {}", e)))?;
 
     server
+        .add_service(health_service)
         .add_service(
             backstep_cloud::service::sync::sync_service_server::SyncServiceServer::new(svc)
                 .max_decoding_message_size(max_message_bytes)

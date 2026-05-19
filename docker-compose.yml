@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: backstep-postgres
+    environment:
+      POSTGRES_USER: backstep
+      POSTGRES_PASSWORD: backstep_dev
+      POSTGRES_DB: backstep_cloud
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: backstep-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    restart: unless-stopped
+
+  backstep-cloud:
+    build: .
+    container_name: backstep-cloud
+    ports:
+      - "50051:50051"
+    environment:
+      LISTEN_ADDR: 0.0.0.0:50051
+      DATABASE_URL: postgres://backstep:backstep_dev@postgres:5432/backstep_cloud
+      DB_MAX_CONNECTIONS: "10"
+      R2_ENDPOINT: http://minio:9000
+      R2_BUCKET: backstep-packs
+      R2_ACCESS_KEY_ID: minioadmin
+      R2_SECRET_ACCESS_KEY: minioadmin
+      R2_REGION: us-east-1
+      R2_FORCE_PATH_STYLE: "true"
+      MAX_PACK_BYTES: "8388608"
+      MAX_PULL_OPERATIONS: "100"
+      LOG_LEVEL: info
+      DEV_MODE: "true"
+    depends_on:
+      postgres:
+        condition: service_started
+      minio:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  miniodata:
