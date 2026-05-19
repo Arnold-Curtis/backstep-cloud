@@ -14,14 +14,15 @@ use crate::storage;
 pub async fn handle(
     request: Request<PackPullRequest>,
     state: &AppState,
-) -> Result<Response<Pin<Box<dyn Stream<Item = Result<PackPullResponse, Status>> + Send>>>, Status> {
+) -> Result<Response<Pin<Box<dyn Stream<Item = Result<PackPullResponse, Status>> + Send>>>, Status>
+{
     let ctx = authenticate(request.metadata(), &state.pool)
         .await
         .map_err(Status::from)?;
 
     let req = request.into_inner();
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     validation::validate_device_id(&req.device_id).map_err(Status::from)?;
 

@@ -16,13 +16,13 @@ pub async fn handle(
         .await
         .map_err(Status::from)?;
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     let mut stream = request.into_inner();
     let mut buffer = Vec::new();
     let mut metadata: Option<PackPushRequest> = None;
 
-    while let Some(msg) = stream.message().await.map_err(Status::from)? {
+    while let Some(msg) = stream.message().await? {
         if metadata.is_none() {
             validation::validate_device_id(&msg.device_id).map_err(Status::from)?;
             validation::validate_pack_size(msg.total_bytes, state.max_pack_bytes)

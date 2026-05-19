@@ -29,7 +29,10 @@ pub async fn create_account(pool: &PgPool, display_name: &str) -> Result<Account
     Ok(account)
 }
 
-pub async fn lookup_account(pool: &PgPool, account_id: Uuid) -> Result<Option<Account>, CloudError> {
+pub async fn lookup_account(
+    pool: &PgPool,
+    account_id: Uuid,
+) -> Result<Option<Account>, CloudError> {
     let account = sqlx::query_as::<_, Account>(
         "SELECT account_id, display_name, plan_tier, is_active FROM accounts WHERE account_id = $1",
     )

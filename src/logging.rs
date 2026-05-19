@@ -3,7 +3,6 @@ use uuid::Uuid;
 /// Audit log for mutating operations.
 /// These are NOT debug logs — they are the authoritative audit trail.
 /// Every mutation (PushMetadata, PushPack) must emit an audit event.
-
 pub fn audit_mutation(
     account_id: Uuid,
     device_id: &str,

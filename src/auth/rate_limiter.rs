@@ -1,48 +1,38 @@
-use std::collections::HashMap;
+use governor::{
+    clock::DefaultClock, state::keyed::HashMapStateStore, Quota, RateLimiter as GovLimiter,
+};
+use std::num::NonZeroU32;
 use std::sync::Arc;
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-use tokio::sync::Mutex;
 use uuid::Uuid;
 
-/// Per-account concurrency limiter.
-/// Each account gets a semaphore with `max_concurrent` permits.
-/// Permits are automatically released on drop.
+/// Per-account time-window rate limiter using the GCRA algorithm.
+///
+/// Each account gets an independent rate limit. Requests that exceed
+/// the configured rate are queued (not rejected) — the caller blocks
+/// until capacity is available.
 #[derive(Clone)]
 pub struct RateLimiter {
-    /// Inner storage: maps account_id -> (semaphore, current usage count)
-    inner: Arc<Mutex<HashMap<Uuid, Arc<Semaphore>>>>,
-    max_concurrent: usize,
+    inner: Arc<GovLimiter<Uuid, HashMapStateStore<Uuid>, DefaultClock>>,
 }
 
 impl RateLimiter {
-    pub fn new(max_concurrent: usize) -> Self {
+    /// Creates a rate limiter with the given maximum requests per second
+    /// per account.
+    pub fn new(max_per_second: u32) -> Self {
+        let quota = Quota::per_second(
+            NonZeroU32::new(max_per_second).expect("max_per_second must be non-zero"),
+        );
         Self {
-            inner: Arc::new(Mutex::new(HashMap::new())),
-            max_concurrent,
+            inner: Arc::new(GovLimiter::hashmap(quota)),
         }
     }
 
-    /// Acquire a concurrency permit for an account.
-    /// Blocks until a permit is available.
-    /// The returned permit is automatically released on drop.
-    pub async fn acquire(&self, account_id: Uuid) -> OwnedSemaphorePermit {
-        let sem = {
-            let mut map = self.inner.lock().await;
-            map.entry(account_id)
-                .or_insert_with(|| Arc::new(Semaphore::new(self.max_concurrent)))
-                .clone()
-        };
-        // This await may block; the lock is released before the block.
-        let permit = sem.acquire_owned().await;
-        // SAFETY: semaphore permits are never 0 (initialized at max_concurrent).
-        permit.expect("semaphore closed unexpectedly")
-    }
-
-    /// Current usage count for an account (for monitoring).
-    pub async fn usage(&self, account_id: Uuid) -> usize {
-        let map = self.inner.lock().await;
-        map.get(&account_id)
-            .map(|s| self.max_concurrent - s.available_permits())
-            .unwrap_or(0)
+    /// Blocks until the account has capacity for one request.
+    ///
+    /// This is a cooperative back-pressure mechanism — callers wait
+    /// rather than being rejected. For a server-side limiter, queuing
+    /// is preferred over rejection to avoid cascading client retries.
+    pub async fn acquire(&self, account_id: Uuid) {
+        self.inner.until_key_ready(&account_id).await;
     }
 }

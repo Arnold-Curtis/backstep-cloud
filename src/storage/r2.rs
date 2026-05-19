@@ -1,6 +1,6 @@
 use aws_config::BehaviorVersion;
-use aws_sdk_s3::Client;
 use aws_sdk_s3::primitives::ByteStream;
+use aws_sdk_s3::Client;
 use uuid::Uuid;
 
 use crate::CloudError;
@@ -62,10 +62,7 @@ pub async fn upload_pack(
         .await
         .map_err(|e| CloudError::Storage(format!("R2 PutObject failed: {}", e)))?;
 
-    let etag = output
-        .e_tag()
-        .map(|s| s.to_string())
-        .unwrap_or_default();
+    let etag = output.e_tag().map(|s| s.to_string()).unwrap_or_default();
 
     tracing::info!(
         key = %key,

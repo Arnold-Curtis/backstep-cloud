@@ -16,15 +16,12 @@ pub async fn handle(
 
     let req = request.into_inner();
 
-    let _permit = state.rate_limiter.acquire(ctx.account_id).await;
+    state.rate_limiter.acquire(ctx.account_id).await;
 
     validation::validate_device_id(&req.device_id).map_err(Status::from)?;
     validation::validate_since_clock(req.since_clock).map_err(Status::from)?;
 
-    let limit = req
-        .max_operations
-        .min(state.max_pull_operations)
-        .max(1) as i64;
+    let limit = req.max_operations.min(state.max_pull_operations).max(1) as i64;
 
     let (records, has_more) =
         events::query_since_clock(&state.pool, ctx.account_id, req.since_clock as i64, limit)

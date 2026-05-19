@@ -62,11 +62,7 @@ impl SyncService for SyncServiceImpl {
         handlers::push_pack::handle(request, &self.state).await
     }
 
-    type PullPackStream = Pin<
-        Box<
-            dyn Stream<Item = Result<PackPullResponse, Status>> + Send,
-        >,
-    >;
+    type PullPackStream = Pin<Box<dyn Stream<Item = Result<PackPullResponse, Status>> + Send>>;
 
     async fn pull_pack(
         &self,
