@@ -18,10 +18,16 @@ pub enum CloudError {
     Storage(String),
 
     #[error("grpc: {0}")]
-    Grpc(#[from] tonic::Status),
+    Grpc(Box<tonic::Status>),
 
     #[error("internal: {0}")]
     Internal(String),
+}
+
+impl From<tonic::Status> for CloudError {
+    fn from(status: tonic::Status) -> Self {
+        CloudError::Grpc(Box::new(status))
+    }
 }
 
 impl From<CloudError> for tonic::Status {
@@ -32,9 +38,13 @@ impl From<CloudError> for tonic::Status {
             CloudError::Config(_) | CloudError::Internal(_) => {
                 tonic::Status::internal(err.to_string())
             }
-            CloudError::Database(_) => tonic::Status::internal("database error"),
-            CloudError::Storage(_) => tonic::Status::internal("storage error"),
-            CloudError::Grpc(status) => status.clone(),
+            CloudError::Database(e) => {
+                tonic::Status::internal(format!("database error: {}", e))
+            }
+            CloudError::Storage(msg) => {
+                tonic::Status::internal(format!("storage error: {}", msg))
+            }
+            CloudError::Grpc(status) => (**status).clone(),
         }
     }
 }

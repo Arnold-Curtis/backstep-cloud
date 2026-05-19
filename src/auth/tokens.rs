@@ -5,10 +5,11 @@ use sha2::{Digest, Sha256};
 /// Format: bsk_{32_hex}_{32_hex} = 256 bits of entropy.
 pub fn generate_api_key() -> String {
     let mut rng = rand::thread_rng();
-    let part1: String = (0..32)
+    // 16 bytes per part → 32 hex chars each → 256 bits total entropy.
+    let part1: String = (0..16)
         .map(|_| format!("{:02x}", rng.gen::<u8>()))
         .collect();
-    let part2: String = (0..32)
+    let part2: String = (0..16)
         .map(|_| format!("{:02x}", rng.gen::<u8>()))
         .collect();
     format!("bsk_{}_{}", part1, part2)

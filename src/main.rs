@@ -7,7 +7,17 @@ use backstep_cloud::{
     CloudError,
 };
 
-use tonic::transport::Server;
+use std::time::Duration;
+use tonic::transport::server::ServerTlsConfig;
+use tonic::transport::{Identity, Server};
+
+/// Waits for SIGINT, then returns so the server can drain in-flight RPCs.
+async fn shutdown_signal() {
+    tokio::signal::ctrl_c()
+        .await
+        .expect("failed to install ctrl+c signal handler");
+    tracing::info!("SIGINT received — initiating graceful shutdown, draining in-flight RPCs");
+}
 
 #[tokio::main]
 async fn main() -> Result<(), CloudError> {
@@ -32,6 +42,8 @@ async fn main() -> Result<(), CloudError> {
     let db_pool = pool::init_pool(&config.database_url, config.db_max_connections).await?;
     pool::run_migrations(&db_pool).await?;
 
+    let pool_for_shutdown = db_pool.clone();
+
     let r2_client = storage::init_client(&config).await?;
 
     let rate_limiter = RateLimiter::new(50);
@@ -47,17 +59,69 @@ async fn main() -> Result<(), CloudError> {
 
     let svc = SyncServiceImpl::new(state);
 
+    let max_message_bytes = config.max_pack_bytes as usize;
+
+    let tls_config = match (&config.tls_cert_path, &config.tls_key_path) {
+        (Some(cert_path), Some(key_path)) => {
+            let cert_pem = std::fs::read_to_string(cert_path).map_err(|e| {
+                CloudError::Config(format!("failed to read TLS certificate: {}", e))
+            })?;
+            let key_pem = std::fs::read_to_string(key_path).map_err(|e| {
+                CloudError::Config(format!("failed to read TLS key: {}", e))
+            })?;
+            let identity = Identity::from_pem(cert_pem, key_pem);
+            let tls = ServerTlsConfig::new().identity(identity);
+
+            tracing::info!(
+                cert_path = %cert_path,
+                key_path = %key_path,
+                "TLS configured"
+            );
+            Some(tls)
+        }
+        _ => {
+            tracing::warn!("TLS not configured — running with plaintext transport");
+            None
+        }
+    };
+
+    let transport_label = if tls_config.is_some() { "TLS" } else { "plaintext" };
+    tracing::info!(
+        addr = %config.listen_addr,
+        max_message_bytes,
+        transport = transport_label,
+        timeout_secs = 60,
+        "listening"
+    );
+
+    let mut server = Server::builder().timeout(Duration::from_secs(60));
+
+    if let Some(tls) = tls_config {
+        server = server
+            .tls_config(tls)
+            .map_err(|e| CloudError::Internal(format!("TLS configuration error: {}", e)))?;
+    }
+
     let listener = tokio::net::TcpListener::bind(&config.listen_addr)
         .await
         .map_err(|e| CloudError::Internal(format!("bind failed: {}", e)))?;
 
-    tracing::info!(addr = %config.listen_addr, "listening");
-
-    Server::builder()
-        .add_service(backstep_cloud::service::sync::sync_service_server::SyncServiceServer::new(svc))
-        .serve_with_incoming(tokio_stream::wrappers::TcpListenerStream::new(listener))
+    server
+        .add_service(
+            backstep_cloud::service::sync::sync_service_server::SyncServiceServer::new(svc)
+                .max_decoding_message_size(max_message_bytes)
+                .max_encoding_message_size(max_message_bytes),
+        )
+        .serve_with_incoming_shutdown(
+            tokio_stream::wrappers::TcpListenerStream::new(listener),
+            shutdown_signal(),
+        )
         .await
         .map_err(|e| CloudError::Internal(format!("server error: {}", e)))?;
+
+    tracing::info!("gRPC server stopped, closing database pool");
+    pool_for_shutdown.close().await;
+    tracing::info!("database pool closed");
 
     Ok(())
 }

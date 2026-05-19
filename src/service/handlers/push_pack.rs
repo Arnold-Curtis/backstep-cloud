@@ -22,7 +22,7 @@ pub async fn handle(
     let mut buffer = Vec::new();
     let mut metadata: Option<PackPushRequest> = None;
 
-    while let Some(msg) = stream.message().await.map_err(Status::from)? {
+    while let Some(msg) = stream.message().await? {
         if metadata.is_none() {
             validation::validate_device_id(&msg.device_id).map_err(Status::from)?;
             validation::validate_pack_size(msg.total_bytes, state.max_pack_bytes)
