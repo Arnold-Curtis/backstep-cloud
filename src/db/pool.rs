@@ -80,6 +80,9 @@ pub async fn init_pool(
 }
 
 pub async fn run_migrations(pool: &PgPool) -> Result<(), crate::CloudError> {
+    // Embedded migrations are compiled into the binary by sqlx::migrate!().
+    // If a migration .sql file is added or changed but not reflected at
+    // runtime, force a full recompile: cargo clean -p backstep-cloud && cargo build
     sqlx::migrate!("./migrations")
         .run(pool)
         .await
