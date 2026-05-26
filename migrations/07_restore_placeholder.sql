@@ -1,0 +1,5 @@
+-- Migration 07 placeholder — original file was lost.
+-- This migration was previously applied to the database but the source file was deleted.
+-- This empty file satisfies sqlx's migration resolution so it no longer errors on startup.
+-- If sqlx reports a checksum mismatch, manually clean the _sqlx_migrations table:
+--   DELETE FROM _sqlx_migrations WHERE version = 7;
