@@ -86,7 +86,22 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), crate::CloudError> {
     sqlx::migrate!("./migrations")
         .run(pool)
         .await
-        .map_err(|e| crate::CloudError::Internal(format!("migration failed: {}", e)))?;
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("has been modified") || msg.contains("was previously applied") {
+                crate::CloudError::Internal(format!(
+                    "migration error: {}\n\n\
+                     RECOVERY: This usually means a migration file was changed or deleted \
+                     after being applied. If the migration's schema changes are already in \
+                     the database, remove the stale record:\n  \
+                     DELETE FROM _sqlx_migrations WHERE version = (the version number);\n\
+                     Alternatively, restore the original migration file content.",
+                    msg
+                ))
+            } else {
+                crate::CloudError::Internal(format!("migration failed: {}", msg))
+            }
+        })?;
 
     tracing::info!("database migrations complete");
     Ok(())
